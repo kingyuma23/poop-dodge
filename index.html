@@ -20,7 +20,7 @@
   }
   .cloud{ position:absolute; background:#fff; border-radius:50%; opacity:.8; filter:blur(1px); }
   #player{
-    position:absolute; bottom:10px; width:78px; height:auto;
+    position:absolute; bottom:10px; width:62px; height:auto;
     transform:translateX(-50%); z-index:5;
     filter:drop-shadow(0 4px 6px rgba(0,0,0,.3));
   }
@@ -60,6 +60,7 @@
   <div class="cloud" style="top:5%;left:42%;width:64px;height:36px;"></div>
 
   <div id="hud">
+    <span id="lives">❤️×1</span>
     <span id="score">スコア 0</span>
     <span id="best">ベスト 0</span>
   </div>
@@ -73,7 +74,7 @@
 
   <div id="overlay">
     <h1>☔ うんこよけ ☔</h1>
-    <p>空から うんこが ふってくる！<br><b>1回でも あたったら ゲームオーバー！</b><br>すすむほど かずが ふえる…<br>たまに へんな うんこも くる！<br><br>スマホ：ゆびでスライド<br>PC：マウス／←→キー</p>
+    <p>空から うんこが ふってくる！<br>あたると ❤️が へる。<b>0で ゲームオーバー！</b><br>✨きんの うんこ✨を とると ❤️+1！<br>すすむほど かずが ふえる…<br><br>スマホ：ゆびでスライド<br>PC：マウス／←→キー</p>
     <button id="startBtn">スタート</button>
   </div>
 </div>
@@ -83,11 +84,14 @@ const game = document.getElementById('game');
 const player = document.getElementById('player');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
+const livesEl = document.getElementById('lives');
 const lvlEl = document.getElementById('lvl');
 const overlay = document.getElementById('overlay');
 const flash = document.getElementById('flash');
 
-let W, H, playerX, score, running, poops, spawnTimer, spawnInterval, fallBase, lastTime, startTime, best=0, level=1;
+let W, H, playerX, score, running, poops, spawnTimer, spawnInterval, fallBase, lastTime, startTime, best=0, level=1, lives=1, invuln=0;
+
+function updateLives(){ livesEl.textContent = '❤️×' + lives; }
 
 function resize(){ W = game.clientWidth; H = game.clientHeight; }
 window.addEventListener('resize', resize);
@@ -130,17 +134,20 @@ function poopShape(type, c){
     <path d="M23 6 q-5 4 0 8 q5-4 0-8Z" fill="${c[2]}"/>`;
 }
 
-function makePoopSVG(type, c){
+function makePoopSVG(type, c, gold){
+  const star = gold ? `<text x="23" y="14" font-size="14" text-anchor="middle">✨</text>` : '';
   return `<svg viewBox="0 0 46 52" width="100%" height="100%">
     ${poopShape(type, c)}
     <circle cx="18" cy="30" r="3.2" fill="#fff"/><circle cx="28" cy="30" r="3.2" fill="#fff"/>
     <circle cx="19" cy="31" r="1.6" fill="#222"/><circle cx="29" cy="31" r="1.6" fill="#222"/>
+    ${star}
   </svg>`;
 }
 
 function start(){
   overlay.classList.add('hidden');
   playerX = W/2; score = 0; running = true; level = 1;
+  lives = 1; invuln = 0; updateLives();
   poops = []; spawnInterval = 950; fallBase = 0.17;
   startTime = performance.now(); lastTime = startTime; spawnTimer = 0;
   player.style.left = playerX + 'px';
@@ -153,12 +160,15 @@ const SHAPES = ['standard','tall','blob','spiky'];
 
 function spawn(elapsed){
   // 基本サイズ46。たまに大小ランダム
-  let size = 46, c = COLORS[0], shape='standard';
-  // 20%の確率で「へんなうんこ」（色・形・サイズが変わる）
-  if(Math.random() < 0.20 + Math.min(0.2, elapsed*0.004)){
-    c = COLORS[Math.floor(Math.random()*COLORS.length)];
+  let size = 46, c = COLORS[0], shape='standard', gold=false;
+  // 8%の確率で金のうんこ（とるとハート+1）
+  if(Math.random() < 0.08){
+    c = COLORS[4]; shape = 'standard'; gold = true; size = 50;
+  } else if(Math.random() < 0.20 + Math.min(0.2, elapsed*0.004)){
+    // へんなうんこ（金以外の色・形・サイズ）
+    const others = [0,1,2,3,5];
+    c = COLORS[others[Math.floor(Math.random()*others.length)]];
     shape = SHAPES[Math.floor(Math.random()*SHAPES.length)];
-    // サイズも変化：小さい（速い）or 大きい（遅いけど避けにくい）
     const r = Math.random();
     if(r < 0.4) size = 30 + Math.random()*8;       // 小
     else if(r > 0.75) size = 64 + Math.random()*26; // 大
@@ -167,14 +177,14 @@ function spawn(elapsed){
   const el = document.createElement('div');
   el.className = 'poop';
   el.style.width = w+'px'; el.style.height = h+'px';
-  el.innerHTML = makePoopSVG(shape, c);
+  if(gold) el.style.filter = 'drop-shadow(0 0 6px #ffd24d)';
+  el.innerHTML = makePoopSVG(shape, c, gold);
   const px = Math.random()*(W-w);
   el.style.left = px + 'px';
   el.style.top = '-'+h+'px';
   game.appendChild(el);
-  // 小さいほど速く、大きいほど遅い
   const sizeFactor = 46/size;
-  poops.push({el, x:px, y:-h, w, h, vy: (fallBase + Math.random()*0.12) * (0.7+0.5*sizeFactor)});
+  poops.push({el, x:px, y:-h, w, h, gold, vy: (fallBase + Math.random()*0.12) * (0.7+0.5*sizeFactor)});
 }
 
 function loop(now){
@@ -201,6 +211,8 @@ function loop(now){
     if(elapsed > 45 && Math.random()<0.5) spawn(elapsed);
   }
 
+  if(invuln>0) invuln -= dt;
+
   const pw = player.clientWidth, ph = player.clientHeight;
   const pLeft = playerX - pw*0.32, pRight = playerX + pw*0.32;
   const pTop = H - 10 - ph*0.85;
@@ -212,7 +224,21 @@ function loop(now){
     const cx = p.x + p.w/2, cy = p.y + p.h*0.78;
     const r = p.w*0.32;
     if(cy > pTop && cy < H-10 && cx+r > pLeft && cx-r < pRight){
-      gameOver(); return;
+      if(p.gold){
+        lives++; updateLives();
+        flash.style.background = '#ffe98a';
+        flash.animate([{opacity:.6},{opacity:0}],{duration:300});
+        p.el.remove(); poops.splice(i,1); continue;
+      } else {
+        if(invuln > 0){ continue; } // 無敵中は素通り
+        lives--; updateLives();
+        flash.style.background = '#fff';
+        flash.animate([{opacity:.85},{opacity:0}],{duration:400});
+        invuln = 600;
+        p.el.remove(); poops.splice(i,1);
+        if(lives <= 0){ gameOver(); return; }
+        continue;
+      }
     }
     if(p.y > H){ p.el.remove(); poops.splice(i,1); }
   }
