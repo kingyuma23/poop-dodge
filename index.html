@@ -162,8 +162,6 @@ const flash = document.getElementById('flash');
 let W, H, playerX, score, running, poops, spawnTimer, spawnInterval, fallBase, lastTime, startTime, best=0, level=1, lives=1, invuln=0;
 let diarrheaDone=false, diarrheaTimer=0;
 let paused=false;
-let starCount=0;
-let ssMsgUntil=0;
 let playerName = localStorage.getItem('poopName') || '';
 
 function updateLives(){ livesEl.textContent = '❤️×' + lives; }
@@ -242,7 +240,6 @@ function start(){
   playerX = W/2; score = 0; running = true; level = 1;
   lives = 1; invuln = 0; updateLives();
   diarrheaDone = false; diarrheaTimer = 0;
-  starCount = 0;
   paused = false;
   document.getElementById('pauseScreen').classList.add('hidden');
   document.getElementById('pauseBtn').classList.remove('hidden');
@@ -292,40 +289,6 @@ function spawn(elapsed){
   poops.push({el, x:px, y:-h, w, h, kind, vy: (fallBase + Math.random()*0.12) * (0.7+0.5*sizeFactor)});
 }
 
-// ===== スーパーサイヤ人化＋画面のうんこ全ぶっ飛ばし =====
-function superSaiyan(){
-  invuln = Math.max(invuln, 7000); // むてき延長
-  // 金色の大爆発フラッシュ
-  flash.style.background = 'radial-gradient(circle, #fff7c0 0%, #ffd633 50%, #ff9500 100%)';
-  flash.animate([{opacity:.9},{opacity:0}],{duration:700});
-  lvlEl.textContent = '🔥 スーパーサイヤ人！！ 🔥';
-  ssMsgUntil = performance.now() + 2000;
-  // 衝撃波リング
-  const ring = document.createElement('div');
-  ring.style.cssText = 'position:absolute;left:'+playerX+'px;bottom:40px;width:20px;height:20px;'
-    + 'border:6px solid #ffe14d;border-radius:50%;transform:translate(-50%,50%);z-index:14;pointer-events:none;';
-  game.appendChild(ring);
-  ring.animate([
-    {width:'20px',height:'20px',opacity:1},
-    {width:(Math.max(W,H)*2.2)+'px',height:(Math.max(W,H)*2.2)+'px',opacity:0}
-  ],{duration:650,easing:'ease-out'}).onfinish=()=>ring.remove();
-  // 画面上の全うんこを上方向にぶっ飛ばして消す（スターは残さず全消し）
-  for(let i=poops.length-1;i>=0;i--){
-    const p = poops[i];
-    if(p.kind==='star'){ continue; } // スターは残す
-    const el = p.el;
-    const dx = (Math.random()*2-1)*W*0.8;
-    const dy = -(H + 200 + Math.random()*200);
-    const rot = (Math.random()*2-1)*720;
-    el.style.zIndex = 13;
-    el.animate([
-      {transform:'translate(0,0) rotate(0deg)',opacity:1},
-      {transform:`translate(${dx}px,${dy}px) rotate(${rot}deg)`,opacity:0}
-    ],{duration:600,easing:'ease-out'}).onfinish=()=>el.remove();
-    poops.splice(i,1);
-  }
-}
-
 function loop(now){
   if(!running) return;
   if(paused) return;
@@ -373,7 +336,7 @@ function loop(now){
     if(invuln > 1000){
       if(playerImg.src !== playerImg.dataset.star) playerImg.src = playerImg.dataset.star;
       player.style.opacity = '1';
-      if(now > ssMsgUntil){ lvlEl.textContent = '⭐ むてき ' + Math.ceil(invuln/1000) + ' びょう'; }
+      lvlEl.textContent = '⭐ むてき ' + Math.ceil(invuln/1000) + ' びょう';
     } else {
       // 残り1秒未満（被弾後の短い無敵など）は点滅のみ・通常画像
       if(playerImg.src !== playerImg.dataset.normal) playerImg.src = playerImg.dataset.normal;
@@ -389,7 +352,6 @@ function loop(now){
   const pLeft = playerX - pw*0.32, pRight = playerX + pw*0.32;
   const pTop = H - 10 - ph*0.85;
 
-  let triggerSS = false;
   for(let i=poops.length-1; i>=0; i--){
     const p = poops[i];
     p.y += p.vy * dt;
@@ -406,10 +368,7 @@ function loop(now){
         invuln = Math.max(invuln, 5000); // 5秒間むてき
         flash.style.background = '#fff3a0';
         flash.animate([{opacity:.7},{opacity:0}],{duration:400});
-        p.el.remove(); poops.splice(i,1);
-        starCount++;
-        if(starCount % 5 === 0){ triggerSS = true; }
-        continue;
+        p.el.remove(); poops.splice(i,1); continue;
       } else {
         if(invuln > 0){ continue; } // 無敵中は素通り
         lives--; updateLives();
@@ -423,7 +382,6 @@ function loop(now){
     }
     if(p.y > H){ p.el.remove(); poops.splice(i,1); }
   }
-  if(triggerSS){ superSaiyan(); }
   requestAnimationFrame(loop);
 }
 
