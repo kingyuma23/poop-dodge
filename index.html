@@ -136,6 +136,7 @@ const overlay = document.getElementById('overlay');
 const flash = document.getElementById('flash');
 
 let W, H, playerX, score, running, poops, spawnTimer, spawnInterval, fallBase, lastTime, startTime, best=0, level=1, lives=1, invuln=0;
+let diarrheaDone=false, diarrheaTimer=0;
 let playerName = localStorage.getItem('poopName') || '';
 
 function updateLives(){ livesEl.textContent = '❤️×' + lives; }
@@ -213,6 +214,7 @@ function start(){
   overlay.classList.add('hidden');
   playerX = W/2; score = 0; running = true; level = 1;
   lives = 1; invuln = 0; updateLives();
+  diarrheaDone = false; diarrheaTimer = 0;
   player.style.opacity = '1';
   playerImg.src = playerImg.dataset.normal;
   poops = []; spawnInterval = 950; fallBase = 0.17;
@@ -229,10 +231,10 @@ function spawn(elapsed){
   // 基本サイズ46。たまに大小ランダム
   let size = 46, c = COLORS[0], shape='standard', kind='poop';
   const roll = Math.random();
-  if(roll < 0.05){
-    // 5% 金のスター（5秒むてき）
+  if(roll < 0.01){
+    // 1% 金のスター（5秒むてき）
     kind = 'star'; size = 46;
-  } else if(roll < 0.13){
+  } else if(roll < 0.09){
     // 8% 金のうんこ（ハート+1）
     kind = 'gold'; c = COLORS[4]; shape = 'standard'; size = 50;
   } else if(Math.random() < 0.20 + Math.min(0.2, elapsed*0.004)){
@@ -274,8 +276,24 @@ function loop(now){
   spawnInterval = Math.max(170, 950 - elapsed*32);
   fallBase = 0.17 + elapsed*0.007;
 
+  // スコア200到達で「下痢の雨」を1回だけ発動（1秒間うんこ大量）
+  if(!diarrheaDone && score >= 200){
+    diarrheaDone = true;
+    diarrheaTimer = 1000; // 1秒間
+    flash.style.background = '#8a5a2a';
+    flash.animate([{opacity:.5},{opacity:0}],{duration:300});
+    lvlEl.textContent = '💩 げりの あめ！';
+  }
+
   spawnTimer += dt;
-  if(spawnTimer > spawnInterval){
+  if(diarrheaTimer > 0){
+    // 下痢の雨：超高頻度で大量に降らせる
+    diarrheaTimer -= dt;
+    if(spawnTimer > 40){
+      spawnTimer = 0;
+      for(let k=0;k<3;k++) spawn(elapsed);
+    }
+  } else if(spawnTimer > spawnInterval){
     spawnTimer = 0;
     spawn(elapsed);
     // 後半は1回に複数体まとめて降らせる
