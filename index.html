@@ -389,6 +389,7 @@ function loop(now){
   const pLeft = playerX - pw*0.32, pRight = playerX + pw*0.32;
   const pTop = H - 10 - ph*0.85;
 
+  let triggerSS = false;
   for(let i=poops.length-1; i>=0; i--){
     const p = poops[i];
     p.y += p.vy * dt;
@@ -407,7 +408,7 @@ function loop(now){
         flash.animate([{opacity:.7},{opacity:0}],{duration:400});
         p.el.remove(); poops.splice(i,1);
         starCount++;
-        if(starCount % 5 === 0){ superSaiyan(); }
+        if(starCount % 5 === 0){ triggerSS = true; }
         continue;
       } else {
         if(invuln > 0){ continue; } // 無敵中は素通り
@@ -422,6 +423,7 @@ function loop(now){
     }
     if(p.y > H){ p.el.remove(); poops.splice(i,1); }
   }
+  if(triggerSS){ superSaiyan(); }
   requestAnimationFrame(loop);
 }
 
